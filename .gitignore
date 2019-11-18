@@ -127,3 +127,7 @@ dmypy.json
 # Pycharm files
 
 .idea/
+
+# SECRET STUFF
+
+twitch_irc/config.py
