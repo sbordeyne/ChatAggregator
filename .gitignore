@@ -131,3 +131,4 @@ dmypy.json
 # SECRET STUFF
 
 twitch_irc/config.py
+.idea/workspace.xml
