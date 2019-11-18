@@ -13,7 +13,7 @@ from . import config
 lock = threading.RLock()
 
 
-twitch_args = ["irc.chat.twitch.tv", config.CHATBOT_NICK, config.CHATBOT_OAUTH, "leadcoder"]
+twitch_args = ["irc.chat.twitch.tv", config.CHATBOT_NICK, config.CHATBOT_OAUTH, "dogeek"]
 twitch_kwargs = {'reqs': ['twitch.tv/membership', 'twitch.tv/tags', 'twitch.tv/commands']}
 
 
@@ -162,7 +162,6 @@ class IRCThread(threading.Thread):
         if res.group(12):
             emote_str = res.group(12).split('=')[1]
             emote_str = emote_str.split("/")
-            print(emote_str)
             for emote in emote_str:
                 if emote:
                     emote_id, rest = emote.split(':')
@@ -200,10 +199,9 @@ class IRCThread(threading.Thread):
                 try:
                     texts = self.socket.recv(4096).decode().split('\n')
                     for text in texts:
-                        print(text)
                         logging.debug(text)
                         parsed = self.parse_message(text)
-                        print(parsed)
+                        logging.debug(str(parsed))
                         if parsed.get("command") == 'PING':  # Prevent time out
                             self.send(f'PONG {parsed["message"]}\r')
                         elif parsed.get("command") == 'PRIVMSG':
