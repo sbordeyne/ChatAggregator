@@ -137,7 +137,10 @@ class IRCThread(threading.Thread):
 
         :return: str, first message of the queue.
         """
-        return self.message_queue.popleft()
+        try:
+            return self.message_queue.popleft()
+        except IndexError:
+            return None
 
     def parse_message(self, text):
         """
