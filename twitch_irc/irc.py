@@ -2,14 +2,40 @@ import threading
 import socket
 import collections
 import time
+import logging
+import re
 
-from .logging import logger
+
+from . import logging as log_config
+from . import config
 
 
 lock = threading.RLock()
 
 
-class IRC(threading.Thread):
+twitch_args = ["irc.chat.twitch.tv", config.CHATBOT_NICK, config.CHATBOT_OAUTH, "dogeek"]
+twitch_kwargs = {'reqs': ['twitch.tv/membership', 'twitch.tv/tags', 'twitch.tv/commands']}
+
+
+class IRCThread(threading.Thread):
+    message_parsing_re = re.compile(r'((@badge-info=(\d*))?;?'
+                                    r'(badges=(\S+/\d+)*)?;?'
+                                    r'(bits=(\d+))?;?'
+                                    r'(color=(#[0-9ABCDEF]{6})?)?;?'
+                                    r'(display-name=([A-Za-z0-9]+))?;?'
+                                    r'(emotes=((\d+):((\d+-\d+,?)*)/?)*);?'
+                                    r'(flags=)?;?'
+                                    r'(id=([a-z0-9\-]+))?;?'
+                                    r'(mod=(\d))?;?'
+                                    r'(room-id=(\d+))?;?'
+                                    r'(subscriber=(\d+))?;?'
+                                    r'(tmi-sent-ts=(\d+))?;?'
+                                    r'(turbo=(\d))?;?'
+                                    r'(user-id=(\d+))?;?'
+                                    r'(user-type=[ a-z]+)?)?'
+                                    r':([A-Za-z0-9]+)!([A-Za-z0-9]+)@([A-Za-z0-9]+).tmi.twitch.tv '
+                                    r'([A-Z]+) #([A-Za-z0-9]+)( :(.+))?')
+
     def __init__(self, server, nick, password, channel_name,
                  port=6667, reqs=None, max_messages=100, message_callbacks=None,
                  on_leave_callbacks=None, **kwargs):
@@ -25,8 +51,11 @@ class IRC(threading.Thread):
         :param reqs: permission request list. Sends CAP REQ commands to the IRC server. (default : [])
         :param max_messages: maximum messages to send the server in 30 seconds. set to -1 for unlimited. (default:100)
         :param message_callbacks: dictionary of callable/list of callables to map to specific IRC commands received.
-                                  callbacks will be passed a 'text' argument, which is the un-parsed text
-                                  the bot received. (default: defaultdict(list))
+                                  callbacks will be passed a 'parsed' argument, which is the parsed text
+                                  the bot received. 'parsed' is a dictionary with the following keys:
+                                      {"badge_info", "badges", "bits", "color", "display_name", "emotes", "message_id",
+                                       "mod", "room_id", "subscriber", "timestamp", "turbo", "user_id", "user",
+                                       "command", "channel_name", "message"} (default: defaultdict(list))
         :param on_leave_callbacks: list of callables to call when the bot successfully
                                    parts the IRC server. (default: [])
         :param kwargs: kwargs to pass the threading.Thread superclass.
@@ -72,7 +101,8 @@ class IRC(threading.Thread):
         self.send(f"NICK {self.nickname}")
         self.send(f"JOIN {self.channel_name}")
         for req in self.reqs:
-            self.send(f"CAP REQ:{req}")
+            self.send(f"CAP REQ :{req}")
+        self.send(':{0}!{0}@{0}.tmi.twitch.tv JOIN #{1}'.format(self.nickname, self.channel_name))
 
     def send(self, text):
         """
@@ -109,6 +139,51 @@ class IRC(threading.Thread):
         """
         return self.message_queue.popleft()
 
+    def parse_message(self, text):
+        """
+        Parses a twitch IRC message using the self.message_parsing_re regex
+
+        :param text: raw twitch IRC message
+        :return: dictionary of parsed values.
+        """
+        res = self.message_parsing_re.search(text)
+
+        if res is None:
+            return {}
+
+        # parse emote string separately cause it's complicated to use only regex for it
+        # format : <emote ID>:<index_start>-<index_end>,<index_start>-<index_end>/
+        #          <emote ID>:<index_start>-<index_end>...
+
+        emotes = []
+        if res.group(12):
+            emote_str = res.group(12).split('=')[1]
+            emote_str = emote_str.split("/")
+            print(emote_str)
+            for emote in emote_str:
+                if emote:
+                    emote_id, rest = emote.split(':')
+                    indices = rest.split(",")
+                    emotes.append({emote_id: indices})
+
+        return {"badge_info": res.group(3),
+                "badges": [] if res.group(5) is None else res.group(5).split(","),
+                "bits": res.group(7),
+                "color": res.group(9),
+                "display_name": res.group(11),
+                "emotes": emotes,
+                "message_id": res.group(19),
+                "mod": res.group(21),
+                "room_id": res.group(23),
+                "subscriber": res.group(25),
+                "timestamp": res.group(27),
+                "turbo": res.group(29),
+                "user_id": res.group(31),
+                "user": res.group(33),
+                "command": res.group(36),
+                "channel_name": res.group(37),
+                "message": res.group(39)}
+
     def run(self):
         """
         Runs the thread and process messages.
@@ -122,18 +197,22 @@ class IRC(threading.Thread):
                 try:
                     texts = self.socket.recv(4096).decode().split('\n')
                     for text in texts:
-                        if text.startswith('PING'):  # Prevent time out
-                            self.send(f'PONG {text.split()[1]}\r')
-                        elif text.startswith("PRIVMSG"):
-                            self.message_queue.append(text)
+                        print(text)
+                        logging.debug(text)
+                        parsed = self.parse_message(text)
+                        print(parsed)
+                        if parsed.get("command") == 'PING':  # Prevent time out
+                            self.send(f'PONG {parsed["message"]}\r')
+                        elif parsed.get("command") == 'PRIVMSG':
+                            self.message_queue.append(parsed)
 
                         for k in self.message_callbacks:
-                            if text.startswith(k.upper()):
+                            if parsed.get("command") == k.upper():
                                 for cb in self.message_callbacks.get(k, []):
-                                    cb(text)
+                                    cb(parsed)
                 except socket.error as e:
                     if "10035" not in repr(e):
-                        logger.exception("{} : {}".format(type(e), e))
+                        logging.exception("{} : {}".format(type(e), e))
                     continue
 
     def quit(self):
@@ -143,8 +222,10 @@ class IRC(threading.Thread):
         :return: None
         """
         if self.socket.send('PART'.encode()):
-            self.socket.close()
             self.running = False
+            self.socket.close()
             for cb in self.on_leave_callbacks:
                 cb()
 
+
+irc = IRCThread(*twitch_args, **twitch_kwargs)
