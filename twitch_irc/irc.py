@@ -13,7 +13,7 @@ from . import config
 lock = threading.RLock()
 
 
-twitch_args = ["irc.chat.twitch.tv", config.CHATBOT_NICK, config.CHATBOT_OAUTH, "dogeek"]
+twitch_args = ["irc.chat.twitch.tv", config.CHATBOT_NICK, config.CHATBOT_OAUTH, "leadcoder"]
 twitch_kwargs = {'reqs': ['twitch.tv/membership', 'twitch.tv/tags', 'twitch.tv/commands']}
 
 
