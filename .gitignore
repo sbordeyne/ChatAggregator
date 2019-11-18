@@ -133,3 +133,4 @@ dmypy.json
 twitch_irc/config.py
 .idea/workspace.xml
 .vscode/settings.json
+.idea/workspace.xml
