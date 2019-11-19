@@ -1,0 +1,3 @@
+class MixerException(Exception):
+    pass
+

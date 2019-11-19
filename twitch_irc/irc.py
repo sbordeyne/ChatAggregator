@@ -8,7 +8,7 @@ import re
 
 from . import logging as log_config
 from . import config
-
+from .models import Message
 
 lock = threading.RLock()
 
@@ -168,23 +168,23 @@ class IRCThread(threading.Thread):
                     indices = rest.split(",")
                     emotes.append({emote_id: indices})
 
-        return {"badge_info": res.group(3),
-                "badges": [] if res.group(5) is None else res.group(5).split(","),
-                "bits": res.group(7),
-                "color": res.group(9),
-                "display_name": res.group(11),
-                "emotes": emotes,
-                "message_id": res.group(19),
-                "mod": res.group(21),
-                "room_id": res.group(23),
-                "subscriber": res.group(25),
-                "timestamp": res.group(27),
-                "turbo": res.group(29),
-                "user_id": res.group(31),
-                "user": res.group(33),
-                "command": res.group(36),
-                "channel_name": res.group(37),
-                "message": res.group(39)}
+        return Message(**{"badge_info": res.group(3),
+                          "badges": [] if res.group(5) is None else res.group(5).split(","),
+                          "bits": res.group(7),
+                          "color": res.group(9),
+                          "display_name": res.group(11),
+                          "emotes": emotes,
+                          "message_id": res.group(19),
+                          "mod": res.group(21),
+                          "room_id": res.group(23),
+                          "subscriber": res.group(25),
+                          "timestamp": res.group(27),
+                          "turbo": res.group(29),
+                          "user_id": res.group(31),
+                          "user": res.group(33),
+                          "command": res.group(36),
+                          "channel_name": res.group(37),
+                          "message": res.group(39)})
 
     def run(self):
         """

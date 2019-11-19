@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter.font import Font
 from .chatbox import Chatbox
 from .entries import EntryWithPlaceholder
+from .menubar import Menubar
 
 
 class MainWindow(tk.Frame):
@@ -18,6 +19,9 @@ class MainWindow(tk.Frame):
         self.master.bind('<Configure>', self.on_configure)
         self.chatbox.grid(row=0, column=0, sticky='nswe')
         self.chat_entry.grid(row=1, column=0, sticky="we", padx=0)
+        
+        self.menubar = Menubar(self.master)
+        self.master.config(menu=self.menubar)
         self.loop()
         
     def loop(self):
