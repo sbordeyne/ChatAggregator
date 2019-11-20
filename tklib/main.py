@@ -3,14 +3,16 @@ from tkinter.font import Font
 from .chatbox import Chatbox
 from .entries import EntryWithPlaceholder
 from .menubar import Menubar
+from .controller import Controller
 
 
 class MainWindow(tk.Frame):
-    def __init__(self, master=None):
+    def __init__(self, master=None, config=None):
         super().__init__(master)
+        self.controller = Controller(config)
         self.master.protocol("WM_DELETE_WINDOW", self.on_close)
         self.chat_string = tk.StringVar()
-        self.chatbox = Chatbox()
+        self.chatbox = Chatbox(self, controller=self.controller)
         self.entry_font = Font(family='TkTextFont', size=8)
         self.chat_entry = EntryWithPlaceholder(self, placeholder="Chat...",
                                                textvariable=self.chat_string,
@@ -20,12 +22,12 @@ class MainWindow(tk.Frame):
         self.chatbox.grid(row=0, column=0, sticky='nswe')
         self.chat_entry.grid(row=1, column=0, sticky="we", padx=0)
         
-        self.menubar = Menubar(self.master)
+        self.menubar = Menubar(self.master, controller=self.controller)
         self.master.config(menu=self.menubar)
         self.loop()
         
     def loop(self):
-        self.chatbox.loop()
+        self.chatbox.on_loop()
         self.after(5, self.loop)
 
     def on_chat_send_message(self, *event):
@@ -42,6 +44,6 @@ class MainWindow(tk.Frame):
         self.update()
 
     def on_close(self):
-        self.chatbox.irc.quit()
+        self.controller.aggregator.quit()
         self.master.destroy()
 

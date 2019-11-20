@@ -1,68 +1,60 @@
 import tkinter.ttk as ttk
 import tkinter as tk
-import twitch_irc
-from .labels import ChatLine
 from . import utils
+import textwrap
+from .errors import ControllerNotPassedError
 
 
-class _Chatbox(ttk.Frame):
-    def __init__(self, master, irc_config=None, **kwargs):
+class _Chatbox(tk.Canvas):
+    def __init__(self, master=None, controller=None, **kwargs):
+        if controller is None:
+            raise ControllerNotPassedError("Controller object must be passed to _Chatbox constructor in tklib.chatbox module.")
+        self.controller = controller
+        self.text_spacing = kwargs.pop("text_spacing", 10)
+        self.x_offset = kwargs.pop("x_offset", 10)
+        
         super().__init__(master, **kwargs)
-        if irc_config is None:
-            self.irc = twitch_irc.irc
-        else:
-            self.irc = twitch_irc.IRCThread(**irc_config)
-        self.chat_list = []
-        self.irc.start()
-
-    def loop(self):
-        message = twitch_irc.irc.last_message
-        if message is not None:
-            chat_line = ChatLine(self, name_text=message.get('display_name'),
-                                 message_text=message.get('message'))
-            chat_line.grid(row=len(self.chat_list), column=0, sticky="we")
-            self.chat_list.append(chat_line)
+        self.last_chatline_pos_y = 0
+        self.last_chatline_index = 0
+        
+    
+    def create_chatline(self, name_text, message_text, **kwargs):
+        message_lines = textwrap.wrap(message_text, width=50)
+        text = [f"{name_text} : {message_lines[0]}"] + message_lines[1:]
+        x, y = self.x_offset, self.last_chatline_pos_y
+        tags = kwargs.pop("tags", []) + [f"chatline{self.last_chatline_index}"]
+        for i, txt in enumerate(text):
+            y += i * self.text_spacing
+            self.create_text(x, y, anchor=tk.NW, text=txt, tags=tags, **kwargs)
+        self.last_chatline_index += 1
+        self.last_chatline_pos_y = y + self.text_spacing
+        return tags[-1]
+    
+    def on_loop(self):
+        messages = self.controller.aggregator.aggregate()
+        for message in messages:
+            self.create_chatline(message.get("display_name"), message.get("message"))
+        if messages:
             self.update()
             self.update_idletasks()
 
 
 class Chatbox(ttk.Frame):
-    def __init__(self, master=None, irc_config=None, **kwargs):
+    def __init__(self, master=None, controller=None, **kwargs):
         super().__init__(master, **kwargs)
         self.vsb = ttk.Scrollbar(self)
-        self.canvas = tk.Canvas(self, bd=0, highlightthickness=0,
-                                yscrollcommand=lambda f, l: utils.auto_scroll(self.vsb, f, l))
+        self._chatbox = _Chatbox(self, bd=0, highlightthickness=0,
+                                 yscrollcommand=lambda f, l: utils.auto_scroll(self.vsb, f, l),
+                                 controller=controller)
 
-        self.canvas.grid(row=0, column=0, sticky="nswe")
+        self._chatbox.grid(row=0, column=0, sticky="nswe")
 
-        self.vsb.config(command=self.canvas.yview)
-        self.canvas.xview_moveto(0)
-        self.canvas.yview_moveto(0)
-        interior_id = self._chatbox = _Chatbox(self.canvas, irc_config)
-        self.canvas.create_window(0, 0, window=self._chatbox,
-                                  anchor=tk.NW)
+        self.vsb.config(command=self._chatbox.yview)
+        self._chatbox.xview_moveto(0)
+        self._chatbox.yview_moveto(0)
+        
         self.vsb.grid(row=0, column=1, sticky='ns')
 
-        def _configure_interior(event):
-            # update the scrollbars to match the size of the inner frame
-            size = (self._chatbox.winfo_reqwidth(), self._chatbox.winfo_reqheight())
-            self.canvas.config(scrollregion="0 0 %s %s" % size)
-            if self._chatbox.winfo_reqwidth() != self.canvas.winfo_width():
-                # update the canvas's width to fit the inner frame
-                self.canvas.config(width=self._chatbox.winfo_reqwidth())
+    def on_loop(self):
+        self._chatbox.on_loop()
 
-        self._chatbox.bind('<Configure>', _configure_interior)
-
-        def _configure_canvas(event):
-            if self._chatbox.winfo_reqwidth() != self.canvas.winfo_width():
-                # update the inner frame's width to fill the canvas
-                self.canvas.itemconfigure(interior_id, width=self.canvas.winfo_width())
-
-        self.canvas.bind('<Configure>', _configure_canvas)
-
-    def loop(self):
-        self._chatbox.loop()
-
-    @property
-    def irc(self):
-        return self._chatbox.irc

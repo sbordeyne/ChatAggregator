@@ -8,13 +8,9 @@ import re
 
 from . import logging as log_config
 from . import config
-from .models import Message
+from chatrooms.models.message import Message
 
 lock = threading.RLock()
-
-
-twitch_args = ["irc.chat.twitch.tv", config.CHATBOT_NICK, config.CHATBOT_OAUTH, "dogeek"]
-twitch_kwargs = {'reqs': ['twitch.tv/membership', 'twitch.tv/tags', 'twitch.tv/commands']}
 
 
 class IRCThread(threading.Thread):
@@ -227,6 +223,3 @@ class IRCThread(threading.Thread):
             self.socket.close()
             for cb in self.on_leave_callbacks:
                 cb()
-
-
-irc = IRCThread(*twitch_args, **twitch_kwargs)
