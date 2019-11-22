@@ -4,6 +4,7 @@
 
 import os
 import pprint
+import pickle
 
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
@@ -51,11 +52,27 @@ class YouTube():
         api_version = "v3"
         client_secrets_file = "./chatrooms/youtube/client_secret.json"
 
-        # Get credentials and create an API client
-        flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-            client_secrets_file, scopes)
-        
-        credentials = flow.run_console()
+        if os.path.exists("token.pickle"):
+            #flow = google_auth_oauthlib.flow.Flow.from_client_config("refresh.token", scopes)
+            with open("token.pickle", 'rb') as f:
+                credentials = pickle.load(f)
+        else:
+            # Get credentials and create an API client
+            flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
+                client_secrets_file, scopes)
+            #credentials = flow.run_console()
+            credentials = flow.run_local_server(
+                host='localhost',
+                port=8088,
+                authorization_prompt_message='Please visit this URL: {url}',
+                success_message='The auth flow is complete; you may close this window.',
+                open_browser=True)
+
+            creds = credentials
+            with open('token.pickle', 'wb') as f:
+                pickle.dump(creds, f)
+
+        #return youtube
         self.youtube = googleapiclient.discovery.build(
             api_service_name, api_version, credentials=credentials)
 
