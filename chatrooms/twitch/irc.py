@@ -9,8 +9,7 @@ import re
 from . import logging as log_config
 from . import config
 from chatrooms.models.message import Message
-
-lock = threading.RLock()
+from chatrooms import lock
 
 
 class IRCThread(threading.Thread):

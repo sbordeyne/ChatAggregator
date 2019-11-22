@@ -18,7 +18,9 @@ class _Chatbox(tk.Canvas):
         self.last_chatline_index = 0
         
     
-    def create_chatline(self, name_text, message_text, **kwargs):
+    def create_chatline(self, message, **kwargs):
+        name_text = message.get("display_name")
+        message_text = message.get("message")
         message_lines = textwrap.wrap(message_text, width=50)
         text = [f"{name_text} : {message_lines[0]}"] + message_lines[1:]
         x, y = self.x_offset, self.last_chatline_pos_y
@@ -33,7 +35,7 @@ class _Chatbox(tk.Canvas):
     def on_loop(self):
         messages = self.controller.aggregator.aggregate()
         for message in messages:
-            self.create_chatline(message.get("display_name"), message.get("message"))
+            self.create_chatline(message)
         if messages:
             self.update()
             self.update_idletasks()

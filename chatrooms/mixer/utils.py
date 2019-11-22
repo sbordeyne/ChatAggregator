@@ -20,3 +20,7 @@ def get_oauth_authorization_uri(client_id, client_secret=None, scopes=None):
     uri, state = client.create_authorization_url(endpoint)
     webbrowser.open(uri)
     return
+
+
+def get_mixer_header(oauth_token):
+    return {"Authorization": f"Bearer {oauth_token}"}

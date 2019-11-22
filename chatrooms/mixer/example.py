@@ -3,9 +3,9 @@ Example chat bot that monitors incoming messages. responds to !ping command
 """
 
 from tornado.ioloop import IOLoop
-from chatty import create
-import config
-import ChatEventHandler
+from . import create
+from . import ChatEventHandler
+from . import config
 
 
 def _handle_chat(data):
@@ -14,7 +14,7 @@ def _handle_chat(data):
 
 if __name__ == "__main__":
     chat = create(config)
-    chatevents = ChatEventHandler.Handler(config, chat)
+    chatevents = ChatEventHandler(config, chat)
     # Tell chat to authenticate with the beam server. It'll throw
     # a chatty.errors.NotAuthenticatedError if it fails.
     chat.authenticate()
