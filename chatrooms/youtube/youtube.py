@@ -8,15 +8,38 @@ import pprint
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
+import threading
 
 
 
 class YouTube():
     def __init__(self):
-        pass
+        self.youtube = None
 
-    @staticmethod
-    def get_live_broadcast():
+    def start_poll(self): # use lock
+        threading.Timer(5.0, self.poll_chat).start()
+
+    def poll_chat(self):
+        print("polling chat")
+        request = self.youtube.liveBroadcasts().list(
+            part="snippet,contentDetails,status",
+            broadcastType="all",
+            mine=True
+        )
+        response = request.execute()
+  
+        print('GETTING CHATS')
+
+        if "liveChatId" in response["items"][0]["snippet"]:
+            request = self.youtube.liveChatMessages().list(
+                liveChatId=response["items"][0]["snippet"]["liveChatId"],
+                part="snippet"
+            )
+        response = request.execute()
+        pprint.pprint(response)
+        self.start_poll()
+
+    def get_live_broadcast(self):
         # -*- coding: utf-8 -*-
         scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
 
@@ -31,27 +54,25 @@ class YouTube():
         # Get credentials and create an API client
         flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
             client_secrets_file, scopes)
+        
         credentials = flow.run_console()
-        youtube = googleapiclient.discovery.build(
+        self.youtube = googleapiclient.discovery.build(
             api_service_name, api_version, credentials=credentials)
 
-        request = youtube.liveBroadcasts().list(
+        request = self.youtube.liveBroadcasts().list(
             part="snippet,contentDetails,status",
             broadcastType="all",
             mine=True
         )
         response = request.execute()
+  
+        print('GETTING CHATS')
 
-        pprint.pprint(response)
-        print('<-----LIVE CHAT----->')
-   
-
-        request = youtube.liveChatMessages().list(
-            liveChatId="Cg0KC2dzRVR6VVF5S1RnKicKGFVDX0RuNnJUYmJWZ2dXT05adGd6VkhJURILZ3NFVHpVUXlLVGc",
-            part="snippet"
-        )
+        if "liveChatId" in response["items"][0]["snippet"]:
+            request = self.youtube.liveChatMessages().list(
+                liveChatId=response["items"][0]["snippet"]["liveChatId"],
+                part="snippet"
+            )
         response = request.execute()
-
         print(response)
-
-
+        self.start_poll()
