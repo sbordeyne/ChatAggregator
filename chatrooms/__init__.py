@@ -1,3 +1,7 @@
+from threading import RLock
+
+lock = RLock()
+
 from . import models
 
 from . import twitch
