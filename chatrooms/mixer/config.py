@@ -9,7 +9,6 @@ CHATSCID_URI = 'chats/{cid}'
 # This need to be the ID for the channel you wish to join
 # https://beam.pro/api/v1/channels/channelname?fields=id
 CHANNEL_NAME = "robedcoder"
-CHANNELID = '123456'
 
 # This is up to you to obtain. This can be done though
 # Rest API. for more info https://dev.beam.pro/reference/oauth/index.html
