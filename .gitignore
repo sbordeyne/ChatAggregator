@@ -134,6 +134,6 @@ twitch_irc/config.py
 mixer/config.py
 youtube/config.py
 youtube/client_secret.json
-
+chatrooms/youtube/youtube_oauth_creds.json
 .idea/workspace.xml
 .vscode/settings.json

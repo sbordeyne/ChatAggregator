@@ -13,6 +13,7 @@ import threading
 import json
 
 from chatrooms.models.message import Message
+from google.oauth2.credentials import Credentials
 
 
 class YouTube():
@@ -22,6 +23,47 @@ class YouTube():
     def start_poll(self):
         self.thread = threading.Timer(5.0, self.poll_chat)
         self.thread.start()
+    def start_poll(self):  # use lock
+        threading.Timer(5.0, self.poll_chat).start()
+
+    def get_saved_credentials(self, filename='youtube_oauth_creds.json'):
+        fileData = {}
+        try:
+                with open(os.path.join('chatrooms/youtube', filename), 'r') as file:
+                    fileData: dict = json.load(file)
+        except FileNotFoundError:
+            return None
+        if fileData and 'refresh_token' in fileData and 'client_id' in fileData and 'client_secret' in fileData:
+            return Credentials(**fileData)
+        return None
+
+    def store_creds(self, credentials, filename='youtube_oauth_creds.json'):
+        if not isinstance(credentials, Credentials):
+            return
+        fileData = {'refresh_token': credentials.refresh_token,
+                    'token': credentials.token,
+                    'client_id': credentials.client_id,
+                    'client_secret': credentials.client_secret,
+                    'token_uri': credentials.token_uri}
+        with open(os.path.join('chatrooms/youtube/', filename), 'w') as file:
+            json.dump(fileData, file)
+        print(f'Credentials serialized to {filename}.')
+
+    def get_credentials_via_oauth(self, scopes, filename='client_secret.json', saveData=True) -> Credentials:
+        '''Use data in the given filename to get oauth data
+        '''
+        iaflow: InstalledAppFlow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
+            filename, scopes)
+        iaflow.run_local_server(
+            host='localhost',
+            port=8088,
+            authorization_prompt_message='Please visit this URL: {url}',
+            success_message='The auth flow is complete; you may close this window.',
+            open_browser=True
+        )
+        if saveData:
+            self.store_creds(iaflow.credentials)
+        return iaflow.credentials
 
     def poll_chat(self):
         print("polling chat")
@@ -31,7 +73,7 @@ class YouTube():
             mine=True
         )
         response = request.execute()
-  
+
         print('GETTING CHATS')
 
         if "liveChatId" in response["items"][0]["snippet"]:
@@ -54,14 +96,17 @@ class YouTube():
         api_service_name = "youtube"
         api_version = "v3"
         client_secrets_file = "./chatrooms/youtube/client_secret.json"
+        youtube_creds_filename = "youtube_oauth_creds.json"
+
+
+        if os.path.exists(os.path.join('chatrooms/youtube', youtube_creds_filename)):
+            creds = self.get_saved_credentials()
+        else:
+            creds = self.get_credentials_via_oauth(scopes, client_secrets_file)
 
         # Get credentials and create an API client
-        flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-            client_secrets_file, scopes)
-        
-        credentials = flow.run_console()
         self.youtube = googleapiclient.discovery.build(
-            api_service_name, api_version, credentials=credentials)
+            api_service_name, api_version, credentials=creds)
 
         request = self.youtube.liveBroadcasts().list(
             part="snippet,contentDetails,status",
@@ -69,7 +114,7 @@ class YouTube():
             mine=True
         )
         response = request.execute()
-  
+
         print('GETTING CHATS')
 
         if "liveChatId" in response["items"][0]["snippet"]:
