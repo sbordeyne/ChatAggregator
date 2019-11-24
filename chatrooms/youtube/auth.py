@@ -1,6 +1,8 @@
 import logging
 import json
 import chatrooms.youtube.logging
+import os
+import os.path
 
 import google_auth_oauthlib.flow
 import googleapiclient.discovery

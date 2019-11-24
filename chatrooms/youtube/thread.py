@@ -21,7 +21,7 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 
 class YoutubeThread(threading.Thread):
-    def __init__(self, config_path="./config/youtube_client_secret.json"):
+    def __init__(self, config_path="./config/client_secret.json"):
         super().__init__()
         self.running = True
         self.messages = deque()
@@ -37,7 +37,7 @@ class YoutubeThread(threading.Thread):
 
         credentials = get_saved_credentials()
         if credentials is None:
-            credentials = get_credentials_via_oauth()
+            credentials = get_credentials_via_oauth(scopes, filename=self.config_path)
             
         self.api = googleapiclient.discovery.build(
             api_service_name, api_version, credentials=credentials)
