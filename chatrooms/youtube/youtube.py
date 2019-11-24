@@ -4,20 +4,24 @@
 
 import os
 import pprint
+import datetime
 
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
 import threading
+import json
 
+from chatrooms.models.message import Message
 
 
 class YouTube():
     def __init__(self):
         self.youtube = None
 
-    def start_poll(self): # use lock
-        threading.Timer(5.0, self.poll_chat).start()
+    def start_poll(self):
+        self.thread = threading.Timer(5.0, self.poll_chat)
+        self.thread.start()
 
     def poll_chat(self):
         print("polling chat")
@@ -71,8 +75,34 @@ class YouTube():
         if "liveChatId" in response["items"][0]["snippet"]:
             request = self.youtube.liveChatMessages().list(
                 liveChatId=response["items"][0]["snippet"]["liveChatId"],
-                part="snippet"
+                part="snippet,authorDetails"
             )
         response = request.execute()
-        print(response)
+        messages = self.get_message(response)
+        for message in messages:
+            print(str(message))
         self.start_poll()
+    
+    def get_message(self, response):
+        snippet = None
+        try:
+            items = response['items']
+        except KeyError:
+            return None
+        
+        messages = []
+        
+        for item in items:
+            snippet = item['snippet']
+            data = {"display_name": item["authorDetails"]["displayName"],
+                    "message_id": item["id"],
+                    "timestamp": int(datetime.datetime.strptime(snippet["publishedAt"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()),
+                    "user_id": snippet["authorChannelId"],
+                    "channel_name": "",
+                    "message": snippet["displayMessage"],
+                    }
+            messages.append(Message(**data))
+        return messages
+    
+    def quit(self):
+        self.thread.cancel()

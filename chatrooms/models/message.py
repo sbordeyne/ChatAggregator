@@ -1,11 +1,14 @@
 from copy import copy
-
+import pprint
 
 class Message:
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
         self.data = copy(kwargs)
+    
+    def __str__(self):
+        return str(self.data)
     
     def __getitem__(self, key):
         return self.data[key]
