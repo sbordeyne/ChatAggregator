@@ -1,5 +1,5 @@
 import logging
 
-logging.basicConfig(filename="twitch-irc.log",
+logging.basicConfig(filename="logs/twitch.log",
                     format="(%(asctime)s) %(levelname)s : %(message)s",
                     level=logging.DEBUG)

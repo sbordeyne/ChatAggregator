@@ -6,34 +6,42 @@ import datetime
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
+from google.oauth2.credentials import Credentials
 
 from chatrooms.models.message import Message
 from chatrooms import lock
 from chatrooms.utils import get_timestamp_from_iso
 
+import logging
+import chatrooms.youtube.logging
+from .auth import get_credentials_via_oauth, get_saved_credentials
+
+
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 
 class YoutubeThread(threading.Thread):
-    def __init__(self):
+    def __init__(self, config_path="./config/youtube_client_secret.json"):
         super().__init__()
         self.running = True
         self.messages = deque()
-        self.config_path = "./config/youtube_client_secret.json"
-        
+        self.config_path = config_path
+
         scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
         api_service_name = "youtube"
         api_version = "v3"
 
         # Get credentials and create an API client
         flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-            client_secrets_file, scopes)
-        
-        credentials = flow.run_console()
+            self.config_path, scopes)
+
+        credentials = get_saved_credentials()
+        if credentials is None:
+            credentials = get_credentials_via_oauth()
+            
         self.api = googleapiclient.discovery.build(
             api_service_name, api_version, credentials=credentials)
-        
-    
+
     @property
     def last_message(self):
         try:
@@ -47,9 +55,9 @@ class YoutubeThread(threading.Thread):
             items = response['items']
         except KeyError:
             return None
-        
+
         messages = []
-        
+
         for item in items:
             snippet = item['snippet']
             data = {"display_name": item["authorDetails"]["displayName"],
@@ -60,12 +68,14 @@ class YoutubeThread(threading.Thread):
                     "message": snippet["displayMessage"],
                     }
             messages.append(Message(**data))
+        for m in messages:
+            logging.info(str(m))
         self.messages.extend(messages)
-    
+
     def run(self):
         while self.running:
             with lock:
-                request = self.api.liveBroadcasts().list(  #TODO: We don't want mine=True, but we want to specify the livestream to connect to.
+                request = self.api.liveBroadcasts().list(  # TODO: We don't want mine=True, but we want to specify the livestream to connect to.
                     part="snippet,contentDetails,status",
                     broadcastType="all",
                     mine=True
@@ -78,6 +88,6 @@ class YoutubeThread(threading.Thread):
                     )
                 response = request.execute()
                 self.parse_response(response)
-    
+
     def quit(self):
         self.running = False
